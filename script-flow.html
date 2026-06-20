@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Script Flow · Production Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #0B0A08;
+      --surface:      #131209;
+      --surface-2:    #1B1913;
+      --surface-3:    #24211A;
+      --border:       rgba(201, 168, 76, 0.18);
+      --border-sub:   rgba(255, 255, 255, 0.05);
+      --gold:         #C9A84C;
+      --gold-dim:     rgba(201, 168, 76, 0.55);
+      --text:         #F0ECD8;
+      --text-muted:   #7A7060;
+      --text-dim:     #46422E;
+      --red:          #C0392B;
+      --red-glow:     rgba(192, 57, 43, 0.18);
+      --yellow:       #B8860B;
+      --yellow-glow:  rgba(184, 134, 11, 0.18);
+      --green:        #2E7D32;
+      --green-glow:   rgba(46, 125, 50, 0.18);
+      --green-bright: #4CAF50;
+    }
+
+    html, body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .hidden { display: none !important; }
+
+    /* ─── SCROLLBAR ─── */
+    ::-webkit-scrollbar { width: 3px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 2px; }
+
+    /* ─── LAYOUT ─── */
+    .view { min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* ─── HEADER ─── */
+    .app-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 40px;
+      border-bottom: 1px solid var(--border-sub);
+      position: sticky; top: 0; z-index: 10;
+      background: var(--bg);
+    }
+
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-name { font-family: 'Playfair Display', serif; font-size: 21px; font-weight: 700; letter-spacing: -0.3px; }
+    .brand-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--gold); flex-shrink: 0; }
+    .brand-sub { font-size: 10px; letter-spacing: 0.22em; color: var(--text-muted); text-transform: uppercase; font-weight: 500; }
+
+    .header-actions { display: flex; gap: 10px; align-items: center; }
+
+    /* ─── BUTTONS ─── */
+    .btn {
+      font-family: 'Inter', sans-serif; font-size: 11px; letter-spacing: 0.13em;
+      text-transform: uppercase; font-weight: 600; padding: 8px 16px;
+      border: 1px solid; cursor: pointer; background: transparent;
+      transition: all 0.18s; white-space: nowrap;
+    }
+    .btn-gold  { border-color: var(--gold); color: var(--gold); }
+    .btn-gold:hover  { background: var(--gold); color: var(--bg); }
+    .btn-ghost { border-color: var(--border-sub); color: var(--text-muted); }
+    .btn-ghost:hover { border-color: var(--text-muted); color: var(--text); }
+    .btn-back  { border-color: transparent; color: var(--text-muted); padding: 8px 0; }
+    .btn-back:hover  { color: var(--text); background: transparent; border-color: transparent; }
+
+    /* ─── MAIN ─── */
+    .main-content { flex: 1; padding: 36px 40px; max-width: 1200px; width: 100%; margin: 0 auto; }
+
+    /* ─── SECTION LABEL ─── */
+    .section-label { font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-muted); font-weight: 500; }
+
+    /* ─── DASHBOARD TOP ─── */
+    .dashboard-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+
+    /* ─── EMPTY STATE ─── */
+    #empty-state {
+      text-align: center; padding: 100px 20px; color: var(--text-dim);
+    }
+    .empty-glyph { font-size: 28px; opacity: 0.25; margin-bottom: 14px; }
+    .empty-title { font-size: 14px; color: var(--text-muted); margin-bottom: 6px; }
+    .empty-hint  { font-size: 11px; color: var(--text-dim); letter-spacing: 0.04em; }
+
+    /* ─── PROJECTS GRID ─── */
+    #projects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+
+    .project-card {
+      background: var(--surface); border: 1px solid var(--border-sub);
+      padding: 22px; transition: border-color 0.2s; cursor: default;
+    }
+    .project-card:hover { border-color: var(--border); }
+
+    .project-card-name {
+      font-family: 'Playfair Display', serif; font-size: 17px; font-weight: 700;
+      color: var(--text); margin-bottom: 3px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .project-card-date { font-size: 10px; color: var(--text-dim); letter-spacing: 0.07em; margin-bottom: 14px; }
+
+    .project-card-stats { display: flex; gap: 18px; margin-bottom: 12px; }
+    .pc-stat { display: flex; flex-direction: column; gap: 2px; }
+    .pc-stat-num { font-family: 'JetBrains Mono', monospace; font-size: 17px; line-height: 1; color: var(--text); }
+    .pc-stat-lbl { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-muted); }
+
+    .pc-progress-bar { height: 2px; background: var(--surface-3); margin-bottom: 14px; }
+    .pc-progress-fill { height: 100%; background: var(--gold); transition: width 0.4s ease; }
+
+    .project-card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .pc-btn {
+      font-family: 'Inter', sans-serif; font-size: 10px; letter-spacing: 0.1em;
+      text-transform: uppercase; font-weight: 600; padding: 6px 12px;
+      border: 1px solid; cursor: pointer; background: transparent; transition: all 0.18s;
+    }
+    .pc-btn-open   { border-color: var(--gold); color: var(--gold); flex: 1; }
+    .pc-btn-open:hover   { background: var(--gold); color: var(--bg); }
+    .pc-btn-ghost  { border-color: var(--border-sub); color: var(--text-muted); }
+    .pc-btn-ghost:hover  { border-color: var(--text-muted); color: var(--text); }
+    .pc-btn-danger { border-color: rgba(192,57,43,0.35); color: var(--red); }
+    .pc-btn-danger:hover { background: var(--red); color: white; }
+
+    /* ─── TRACKER HEADER ─── */
+    .tracker-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 40px; border-bottom: 1px solid var(--border-sub);
+      position: sticky; top: 0; z-index: 10; background: var(--bg);
+    }
+    .tracker-title { font-family: 'Playfair Display', serif; font-size: 17px; font-weight: 700; }
+
+    /* ─── STATS BAR ─── */
+    #stats-bar {
+      background: var(--surface); border-bottom: 1px solid var(--border-sub);
+      padding: 18px 40px; display: flex; align-items: center; gap: 32px;
+    }
+    .stat-item  { display: flex; flex-direction: column; gap: 4px; }
+    .stat-num   { font-family: 'JetBrains Mono', monospace; font-size: 26px; line-height: 1; color: var(--text); }
+    .stat-label { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-muted); }
+    .stat-div   { width: 1px; height: 30px; background: var(--border-sub); }
+
+    .progress-wrap { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+    .progress-row  { display: flex; justify-content: space-between; align-items: center; }
+    .progress-lbl  { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-muted); }
+    .progress-pct  { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--gold); }
+    .progress-track { height: 2px; background: var(--surface-3); }
+    .progress-fill  { height: 100%; background: linear-gradient(90deg, var(--gold-dim), var(--gold)); transition: width 0.4s ease; }
+
+    /* ─── SEGMENT CONTROLS ─── */
+    .seg-controls {
+      padding: 10px 40px; display: flex; justify-content: flex-end; gap: 8px;
+      border-bottom: 1px solid var(--border-sub);
+    }
+
+    /* ─── SEGMENTS CONTAINER ─── */
+    #segments-container { padding: 20px 40px; display: flex; flex-direction: column; gap: 10px; }
+
+    /* ─── SEGMENT CARD ─── */
+    .segment-card {
+      border: 1px solid var(--red);
+      box-shadow: 0 0 14px var(--red-glow);
+      background: var(--surface);
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    .segment-card.status-started  { border-color: var(--yellow); box-shadow: 0 0 14px var(--yellow-glow); }
+    .segment-card.status-finished { border-color: var(--green);  box-shadow: 0 0 14px var(--green-glow);  }
+
+    /* ─── SEGMENT HEADER ─── */
+    .seg-header {
+      display: flex; align-items: center; gap: 14px; padding: 13px 18px;
+      cursor: pointer; user-select: none;
+    }
+    .seg-num { font-family: 'JetBrains Mono', monospace; font-size: 17px; color: var(--gold); font-weight: 500; min-width: 32px; }
+    .seg-of  { font-size: 10px; color: var(--text-dim); white-space: nowrap; }
+
+    .seg-checks { display: flex; align-items: center; gap: 18px; margin-left: auto; }
+    .check-item { display: flex; align-items: center; gap: 6px; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); cursor: pointer; }
+    .check-item input[type="checkbox"] {
+      appearance: none; width: 14px; height: 14px;
+      border: 1px solid var(--text-dim); background: transparent;
+      cursor: pointer; position: relative; transition: all 0.18s; flex-shrink: 0;
+    }
+    .check-item input[type="checkbox"]:checked { background: var(--gold); border-color: var(--gold); }
+    .check-item input[type="checkbox"]:checked::after {
+      content: '✓'; position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%); font-size: 9px; color: var(--bg); font-weight: 800;
+    }
+    .check-item input[type="checkbox"]:disabled { opacity: 0.28; cursor: not-allowed; }
+    .check-item.disabled-label { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+
+    .seg-chevron { font-size: 9px; color: var(--text-dim); transition: transform 0.2s; margin-left: 10px; }
+    .segment-card.open .seg-chevron { transform: rotate(180deg); }
+
+    /* ─── SEGMENT BODY ─── */
+    .seg-body { display: none; border-top: 1px solid var(--border-sub); }
+    .segment-card.open .seg-body { display: block; }
+
+    .seg-field { padding: 14px 18px; border-bottom: 1px solid var(--border-sub); }
+    .seg-field:last-child { border-bottom: none; }
+
+    .field-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .field-label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold-dim); font-weight: 600; }
+
+    .copy-btn {
+      font-family: 'Inter', sans-serif; font-size: 9px; letter-spacing: 0.1em;
+      text-transform: uppercase; font-weight: 600; padding: 4px 10px;
+      border: 1px solid var(--border-sub); color: var(--text-muted);
+      background: transparent; cursor: pointer; transition: all 0.18s;
+    }
+    .copy-btn:hover { border-color: var(--gold-dim); color: var(--gold); }
+    .copy-btn.copied { border-color: var(--green); color: var(--green-bright); }
+
+    .field-text { font-size: 13px; color: var(--text); line-height: 1.75; white-space: pre-wrap; word-break: break-word; }
+    .field-text.mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.8; }
+
+    /* ─── MODALS ─── */
+    .modal {
+      position: fixed; inset: 0; z-index: 200;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.72); backdrop-filter: blur(5px); }
+    .modal-box {
+      position: relative; z-index: 1; background: var(--surface-2);
+      border: 1px solid var(--border); width: 90%; max-width: 560px;
+      max-height: 85vh; overflow-y: auto; display: flex; flex-direction: column;
+    }
+    .modal-box.wide { max-width: 640px; }
+
+    .modal-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 22px; border-bottom: 1px solid var(--border-sub); flex-shrink: 0;
+    }
+    .modal-title { font-family: 'Playfair Display', serif; font-size: 17px; font-weight: 700; }
+    .modal-x {
+      background: transparent; border: none; color: var(--text-muted);
+      font-size: 19px; cursor: pointer; padding: 2px 8px; line-height: 1;
+      transition: color 0.2s;
+    }
+    .modal-x:hover { color: var(--text); }
+
+    .modal-body { padding: 22px; }
+
+    .modal-desc { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; line-height: 1.65; }
+
+    /* Form */
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 7px; font-weight: 500; }
+    .form-input {
+      width: 100%; background: var(--bg); border: 1px solid var(--border-sub);
+      color: var(--text); font-family: 'Inter', sans-serif; font-size: 13px;
+      padding: 10px 14px; outline: none; transition: border-color 0.18s;
+    }
+    .form-input:focus { border-color: var(--gold-dim); }
+    .form-input::placeholder { color: var(--text-dim); }
+
+    /* Upload area */
+    .upload-area {
+      border: 1px dashed var(--border-sub); padding: 22px; text-align: center;
+      cursor: pointer; transition: border-color 0.18s, background 0.18s; position: relative;
+    }
+    .upload-area:hover, .upload-area.dragover { border-color: var(--gold-dim); background: rgba(201,168,76,0.03); }
+    .upload-area input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .upload-text { font-size: 12px; color: var(--text-muted); }
+    .upload-text span { color: var(--gold); }
+    .upload-hint { font-size: 10px; color: var(--text-dim); margin-top: 4px; }
+    .upload-status { font-size: 11px; margin-top: 8px; font-family: 'JetBrains Mono', monospace; }
+    .upload-status.ok  { color: var(--green-bright); }
+    .upload-status.err { color: var(--red); }
+
+    /* Warning */
+    .warn-box { font-size: 11px; color: #D4930A; background: rgba(212,147,10,0.07); border: 1px solid rgba(212,147,10,0.22); padding: 11px 14px; margin-bottom: 16px; line-height: 1.6; }
+
+    /* Error box */
+    .err-box { font-size: 12px; color: #e07070; background: rgba(192,57,43,0.08); border: 1px solid rgba(192,57,43,0.25); padding: 11px 14px; margin-bottom: 16px; line-height: 1.55; }
+
+    /* Modal actions */
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+    .ma-btn {
+      font-family: 'Inter', sans-serif; font-size: 11px; letter-spacing: 0.13em;
+      text-transform: uppercase; font-weight: 600; padding: 9px 20px;
+      border: 1px solid; cursor: pointer; background: transparent; transition: all 0.18s;
+    }
+    .ma-primary { border-color: var(--gold); color: var(--gold); }
+    .ma-primary:hover { background: var(--gold); color: var(--bg); }
+    .ma-secondary { border-color: var(--border-sub); color: var(--text-muted); }
+    .ma-secondary:hover { border-color: var(--text-muted); color: var(--text); }
+    .ma-danger { border-color: rgba(192,57,43,0.38); color: var(--red); }
+    .ma-danger:hover { background: var(--red); color: white; }
+
+    /* Fix JSON prompt box */
+    .prompt-box { background: var(--bg); border: 1px solid var(--border-sub); padding: 16px; }
+    .prompt-pre {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text);
+      line-height: 1.75; white-space: pre-wrap; word-break: break-word;
+      max-height: 300px; overflow-y: auto;
+    }
+    .prompt-copy-btn {
+      margin-top: 12px; width: 100%; font-family: 'Inter', sans-serif; font-size: 11px;
+      letter-spacing: 0.13em; text-transform: uppercase; font-weight: 600; padding: 10px;
+      border: 1px solid var(--gold); color: var(--gold); background: transparent;
+      cursor: pointer; transition: all 0.18s;
+    }
+    .prompt-copy-btn:hover { background: var(--gold); color: var(--bg); }
+    .prompt-copy-btn.copied { background: var(--green); border-color: var(--green); color: white; }
+
+    /* ─── FOOTER ─── */
+    .app-footer {
+      padding: 14px 40px; border-top: 1px solid var(--border-sub);
+      display: flex; align-items: center; margin-top: auto;
+    }
+    .footer-text { font-size: 10px; color: var(--text-dim); letter-spacing: 0.04em; }
+    .footer-text a { color: var(--gold-dim); text-decoration: none; transition: color 0.18s; }
+    .footer-text a:hover { color: var(--gold); }
+
+    /* ─── MOBILE RESPONSIVE ─── */
+    @media (max-width: 640px) {
+      .app-header,
+      .tracker-header     { padding: 14px 16px; }
+      .main-content       { padding: 24px 16px; }
+      .seg-controls       { padding: 10px 16px; }
+      #segments-container { padding: 14px 16px; }
+      .app-footer         { padding: 12px 16px; }
+
+      .brand-sub { display: none; }
+
+      #stats-bar {
+        flex-wrap: wrap;
+        gap: 16px;
+        padding: 16px;
+      }
+      .stat-div { display: none; }
+      .stat-item {
+        flex: 1 1 calc(50% - 16px);
+        min-width: 60px;
+      }
+      .stat-num { font-size: 20px; }
+      .progress-wrap {
+        flex: 1 1 100%;
+        width: 100%;
+      }
+
+      .seg-header { padding: 12px 14px; gap: 8px; }
+      .seg-num    { font-size: 15px; min-width: 26px; }
+      .seg-of     { font-size: 9px; }
+      .seg-checks { gap: 12px; }
+      .check-item { font-size: 9px; gap: 5px; }
+      .seg-field  { padding: 12px 14px; }
+
+      #projects-grid        { grid-template-columns: 1fr; }
+      .project-card         { padding: 18px; }
+      .project-card-actions { flex-wrap: wrap; }
+      .pc-btn-open          { flex: 1 1 100%; }
+
+      .modal-box  { width: 95%; max-height: 90vh; }
+      .modal-body { padding: 16px; }
+      .modal-head { padding: 14px 16px; }
+      .modal-actions { flex-wrap: wrap; }
+      .ma-btn { flex: 1; text-align: center; }
+
+      .tracker-title {
+        font-size: 14px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 140px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════ DASHBOARD VIEW ═══ -->
+<div id="dashboard-view" class="view">
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-name">Script Flow</span>
+      <span class="brand-dot"></span>
+      <span class="brand-sub">Production Tracker</span>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-ghost" id="dash-fix-json-btn">Fix JSON</button>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <div class="dashboard-top">
+      <span class="section-label">Projects</span>
+      <button class="btn btn-gold" id="new-project-btn">+ New Project</button>
+    </div>
+    <div id="projects-grid"></div>
+    <div id="empty-state" class="hidden">
+      <div class="empty-glyph">◈</div>
+      <p class="empty-title">No projects yet.</p>
+      <p class="empty-hint">Create a new project to start tracking your AI video production.</p>
+    </div>
+  </main>
+
+  <footer class="app-footer">
+    <span class="footer-text">Built by <a href="https://github.com/heisborony" target="_blank">@heisborony</a> · <a href="https://github.com/heisborony" target="_blank">GitHub ↗</a></span>
+  </footer>
+</div>
+
+<!-- ═══════════════════════════════════════ TRACKER VIEW ════ -->
+<div id="tracker-view" class="view hidden">
+  <header class="tracker-header">
+    <button class="btn btn-back" id="back-btn">← Back</button>
+    <span class="tracker-title" id="tracker-title"></span>
+    <div class="header-actions">
+      <button class="btn btn-ghost" id="tracker-fix-json-btn">Fix JSON</button>
+    </div>
+  </header>
+
+  <div id="stats-bar">
+    <div class="stat-item"><span class="stat-num" id="stat-total">0</span><span class="stat-label">Total</span></div>
+    <div class="stat-div"></div>
+    <div class="stat-item"><span class="stat-num" id="stat-started">0</span><span class="stat-label">Started</span></div>
+    <div class="stat-div"></div>
+    <div class="stat-item"><span class="stat-num" id="stat-finished">0</span><span class="stat-label">Finished</span></div>
+    <div class="stat-div"></div>
+    <div class="stat-item"><span class="stat-num" id="stat-remaining">0</span><span class="stat-label">Remaining</span></div>
+    <div class="stat-div"></div>
+    <div class="progress-wrap">
+      <div class="progress-row">
+        <span class="progress-lbl">Progress</span>
+        <span class="progress-pct" id="stat-pct">0%</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <div class="seg-controls">
+    <button class="btn btn-ghost" id="expand-all-btn">Expand All</button>
+    <button class="btn btn-ghost" id="collapse-all-btn">Collapse All</button>
+  </div>
+
+  <div id="segments-container"></div>
+
+  <footer class="app-footer">
+    <span class="footer-text">Built by <a href="https://github.com/heisborony" target="_blank">@heisborony</a> · <a href="https://github.com/heisborony" target="_blank">GitHub ↗</a></span>
+  </footer>
+</div>
+
+<!-- ══════════════════════════════════════ MODAL: NEW PROJECT ═ -->
+<div id="modal-new" class="modal hidden">
+  <div class="modal-overlay" data-close="modal-new"></div>
+  <div class="modal-box">
+    <div class="modal-head">
+      <span class="modal-title">New Project</span>
+      <button class="modal-x" data-close="modal-new">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Project Name</label>
+        <input type="text" class="form-input" id="new-name-input" placeholder="e.g. Episode 3 — The Comeback">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Upload JSON File</label>
+        <div class="upload-area" id="new-upload-area">
+          <input type="file" id="new-file-input" accept=".json">
+          <p class="upload-text"><span>Click to upload</span> or drag & drop</p>
+          <p class="upload-hint">.json files only</p>
+          <p class="upload-status hidden" id="new-file-status"></p>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="ma-btn ma-secondary" data-close="modal-new">Cancel</button>
+        <button class="ma-btn ma-primary" id="create-btn">Create Project</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════ MODAL: RENAME ══════ -->
+<div id="modal-rename" class="modal hidden">
+  <div class="modal-overlay" data-close="modal-rename"></div>
+  <div class="modal-box">
+    <div class="modal-head">
+      <span class="modal-title">Rename Project</span>
+      <button class="modal-x" data-close="modal-rename">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">New Name</label>
+        <input type="text" class="form-input" id="rename-input" placeholder="Project name">
+      </div>
+      <div class="modal-actions">
+        <button class="ma-btn ma-secondary" data-close="modal-rename">Cancel</button>
+        <button class="ma-btn ma-primary" id="confirm-rename-btn">Rename</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════ MODAL: DELETE ══════ -->
+<div id="modal-delete" class="modal hidden">
+  <div class="modal-overlay" data-close="modal-delete"></div>
+  <div class="modal-box">
+    <div class="modal-head">
+      <span class="modal-title">Delete Project</span>
+      <button class="modal-x" data-close="modal-delete">×</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-desc">Are you sure you want to delete <strong id="delete-name-display" style="color:var(--text)"></strong>? This cannot be undone.</p>
+      <div class="modal-actions">
+        <button class="ma-btn ma-secondary" data-close="modal-delete">Cancel</button>
+        <button class="ma-btn ma-danger" id="confirm-delete-btn">Delete Project</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════ MODAL: REUPLOAD ════ -->
+<div id="modal-reupload" class="modal hidden">
+  <div class="modal-overlay" data-close="modal-reupload"></div>
+  <div class="modal-box">
+    <div class="modal-head">
+      <span class="modal-title">Re-upload JSON</span>
+      <button class="modal-x" data-close="modal-reupload">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="warn-box">⚠ Uploading a new JSON will reset all progress for this project. This cannot be undone.</div>
+      <div class="form-group">
+        <label class="form-label">New JSON File</label>
+        <div class="upload-area" id="reupload-area">
+          <input type="file" id="reupload-file-input" accept=".json">
+          <p class="upload-text"><span>Click to upload</span> or drag & drop</p>
+          <p class="upload-hint">.json files only</p>
+          <p class="upload-status hidden" id="reupload-file-status"></p>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="ma-btn ma-secondary" data-close="modal-reupload">Cancel</button>
+        <button class="ma-btn ma-danger" id="confirm-reupload-btn">Reset & Upload</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════ MODAL: FIX JSON ════ -->
+<div id="modal-fix-json" class="modal hidden">
+  <div class="modal-overlay" data-close="modal-fix-json"></div>
+  <div class="modal-box wide">
+    <div class="modal-head">
+      <span class="modal-title">Fix JSON</span>
+      <button class="modal-x" data-close="modal-fix-json">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="err-box hidden" id="fix-json-err-msg"></div>
+      <p class="modal-desc">Copy this prompt and paste it into any AI — ChatGPT, Claude, Gemini, Grok, anything — along with your script. It will return a valid Script Flow JSON file ready to upload.</p>
+      <div class="prompt-box">
+        <pre class="prompt-pre" id="fix-json-pre"></pre>
+        <button class="prompt-copy-btn" id="copy-prompt-btn">Copy Prompt</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ SCRIPT ═════ -->
+<script>
+// ─────────────────────────────────────── CONSTANTS ────────────
+const FIX_JSON_PROMPT = `You are a script-to-JSON converter for AI video production workflows.
+
+I will give you a raw video script. Your job is to divide it into segments and generate a structured JSON file for Script Flow — a production tracking app.
+
+━━━ REQUIRED OUTPUT FORMAT ━━━
+
+Return ONLY a valid JSON array. No preamble, no explanation, no markdown code fences. Start your response with [ and end with ].
+
+[
+  {
+    "script": "The narration or dialogue for this segment. Spoken words only — no stage directions.",
+    "illustration": "A detailed prompt for an AI image generator (Midjourney, Flux, Leonardo, Ideogram). Include: art style, color palette, character descriptions and positions, pose, facial expression, composition, lighting, environment, time of day, mood. Be highly specific. This must be fully self-contained.",
+    "animation": "A detailed prompt for an AI video generator (Kling AI, Runway, Pika, Google Flow, Sora). Include: motion description (what moves and how), camera movement (push in, pan, dolly, static, handheld), pacing and energy, duration hint in seconds, mood of the motion. Be highly specific. This must work as a standalone prompt.",
+    "editNote": "Post-production instructions for the editor. Include: SFX cues (ambient, impact, foley), background music mood and energy level, text overlays or captions, transition type to next segment (cut, dissolve, fade, match-cut, J-cut, L-cut), color grade notes, video effects (slow motion, zoom, vignette, etc.)."
+  }
+]
+
+━━━ RULES ━━━
+
+1. Return ONLY the JSON array. Nothing before it, nothing after it.
+2. Every segment must have all 4 fields: script, illustration, animation, editNote.
+3. Illustration and animation prompts must each be fully self-contained — include who is in the scene, what is happening, the setting, and the visual style.
+4. Maintain visual and narrative consistency across all segments (same character descriptions, same art style, same world).
+5. The script field is narration/dialogue ONLY — no production notes or stage directions.
+6. Illustration prompts focus on static composition (for image generators).
+7. Animation prompts focus on motion and camera (for video generators).
+8. Use double quotes only. No trailing commas. Valid JSON strictly.
+
+━━━ MY SCRIPT ━━━
+
+[PASTE YOUR FULL SCRIPT HERE]
+
+━━━ NUMBER OF SEGMENTS ━━━
+
+[ENTER A NUMBER — recommended: 30 to 60 depending on script length]`;
+
+// ─────────────────────────────────────── STATE ────────────────
+const state = {
+  projects: [],
+  currentProjectId: null,
+  pendingRenameId: null,
+  pendingDeleteId: null,
+  pendingReuploadId: null,
+  newFileData: null,
+  reuploadFileData: null,
+};
+
+// ─────────────────────────────────────── STORAGE ──────────────
+function save() {
+  localStorage.setItem('sf_projects', JSON.stringify(state.projects));
+}
+
+function load() {
+  try {
+    state.projects = JSON.parse(localStorage.getItem('sf_projects') || '[]');
+  } catch { state.projects = []; }
+}
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+// ─────────────────────────────────────── VALIDATION ───────────
+function isValidSFJson(data) {
+  if (!Array.isArray(data) || data.length === 0) return false;
+  return data.every(s =>
+    s && typeof s === 'object' &&
+    typeof s.script === 'string' &&
+    typeof s.illustration === 'string' &&
+    typeof s.animation === 'string' &&
+    typeof s.editNote === 'string'
+  );
+}
+
+// ─────────────────────────────────────── VIEWS ────────────────
+function showDashboard() {
+  state.currentProjectId = null;
+  document.getElementById('dashboard-view').classList.remove('hidden');
+  document.getElementById('tracker-view').classList.add('hidden');
+  renderDashboard();
+}
+
+function showTracker(id) {
+  state.currentProjectId = id;
+  document.getElementById('dashboard-view').classList.add('hidden');
+  document.getElementById('tracker-view').classList.remove('hidden');
+  renderTracker();
+}
+
+// ─────────────────────────────────────── DASHBOARD ────────────
+function renderDashboard() {
+  const grid = document.getElementById('projects-grid');
+  const empty = document.getElementById('empty-state');
+  grid.innerHTML = '';
+
+  if (state.projects.length === 0) { empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+
+  state.projects.forEach(p => {
+    const s = calcStats(p);
+    const pct = s.total > 0 ? Math.round((s.finished / s.total) * 100) : 0;
+    const date = new Date(p.createdAt).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' });
+
+    const card = document.createElement('div');
+    card.className = 'project-card';
+    card.innerHTML = `
+      <div class="project-card-name">${esc(p.name)}</div>
+      <div class="project-card-date">${date} · ${pct}% complete</div>
+      <div class="project-card-stats">
+        <div class="pc-stat"><span class="pc-stat-num">${s.total}</span><span class="pc-stat-lbl">Total</span></div>
+        <div class="pc-stat"><span class="pc-stat-num">${s.started}</span><span class="pc-stat-lbl">Started</span></div>
+        <div class="pc-stat"><span class="pc-stat-num">${s.finished}</span><span class="pc-stat-lbl">Finished</span></div>
+        <div class="pc-stat"><span class="pc-stat-num">${s.remaining}</span><span class="pc-stat-lbl">Remaining</span></div>
+      </div>
+      <div class="pc-progress-bar"><div class="pc-progress-fill" style="width:${pct}%"></div></div>
+      <div class="project-card-actions">
+        <button class="pc-btn pc-btn-open" data-action="open" data-id="${p.id}">Open →</button>
+        <button class="pc-btn pc-btn-ghost" data-action="rename" data-id="${p.id}">Rename</button>
+        <button class="pc-btn pc-btn-ghost" data-action="reupload" data-id="${p.id}">Re-upload</button>
+        <button class="pc-btn pc-btn-danger" data-action="delete" data-id="${p.id}">Delete</button>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+document.getElementById('projects-grid').addEventListener('click', e => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const { action, id } = btn.dataset;
+  if (action === 'open')     showTracker(id);
+  if (action === 'rename')   openRenameModal(id);
+  if (action === 'reupload') openReuploadModal(id);
+  if (action === 'delete')   openDeleteModal(id);
+});
+
+function calcStats(p) {
+  const total = p.segments.length;
+  let started = 0, finished = 0;
+  (p.segments || []).forEach((_, i) => {
+    const s = (p.progress || {})[i];
+    if (s === 'finished') finished++;
+    else if (s === 'started') started++;
+  });
+  return { total, started, finished, remaining: total - finished };
+}
+
+// ─────────────────────────────────────── TRACKER ──────────────
+function renderTracker() {
+  const p = state.projects.find(x => x.id === state.currentProjectId);
+  if (!p) { showDashboard(); return; }
+
+  document.getElementById('tracker-title').textContent = p.name;
+  renderSegments(p);
+  updateStats(p);
+}
+
+function renderSegments(p) {
+  const container = document.getElementById('segments-container');
+  container.innerHTML = '';
+  const total = p.segments.length;
+
+  p.segments.forEach((seg, i) => {
+    const status = (p.progress || {})[i] || 'default';
+    container.appendChild(makeSegmentCard(seg, i, total, status));
+  });
+}
+
+function makeSegmentCard(seg, i, total, status) {
+  const card = document.createElement('div');
+  card.className = `segment-card${status !== 'default' ? ' status-' + status : ''}`;
+  card.dataset.index = i;
+
+  const num     = String(i + 1).padStart(2, '0');
+  const started  = status === 'started'  || status === 'finished';
+  const finished = status === 'finished';
+
+  card.innerHTML = `
+    <div class="seg-header">
+      <span class="seg-num">${num}</span>
+      <span class="seg-of">of ${total}</span>
+      <div class="seg-checks">
+        <label class="check-item${finished ? ' disabled-label' : ''}">
+          <input type="checkbox" class="chk-start" ${started ? 'checked' : ''} ${finished ? 'disabled' : ''}>
+          Start
+        </label>
+        <label class="check-item">
+          <input type="checkbox" class="chk-finish" ${finished ? 'checked' : ''}>
+          Finish
+        </label>
+      </div>
+      <span class="seg-chevron">▼</span>
+    </div>
+    <div class="seg-body">
+      ${field('Script', seg.script, true)}
+      ${field('Illustration Prompt', seg.illustration, false)}
+      ${field('Animation Prompt', seg.animation, false)}
+      ${field('Edit Note', seg.editNote, false)}
+    </div>
+  `;
+
+  // Toggle open
+  card.querySelector('.seg-header').addEventListener('click', e => {
+    if (e.target.closest('.seg-checks') || e.target.type === 'checkbox') return;
+    card.classList.toggle('open');
+  });
+
+  // Copy buttons
+  card.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      navigator.clipboard.writeText(btn.dataset.text).then(() => {
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1600);
+      });
+    });
+  });
+
+  // Checkboxes
+  const chkStart  = card.querySelector('.chk-start');
+  const chkFinish = card.querySelector('.chk-finish');
+  const startLabel = chkStart.closest('.check-item');
+
+  chkStart.addEventListener('change', () => {
+    setStatus(i, chkStart.checked ? 'started' : 'default');
+    applyCardStatus(card, i);
+  });
+
+  chkFinish.addEventListener('change', () => {
+    if (chkFinish.checked) {
+      chkStart.checked = true;
+      chkStart.disabled = true;
+      startLabel.classList.add('disabled-label');
+      setStatus(i, 'finished');
+    } else {
+      chkStart.disabled = false;
+      startLabel.classList.remove('disabled-label');
+      setStatus(i, chkStart.checked ? 'started' : 'default');
+    }
+    applyCardStatus(card, i);
+  });
+
+  return card;
+}
+
+function field(label, text, mono) {
+  const safe = esc(text || '');
+  const raw  = (text || '').replace(/"/g, '&quot;');
+  return `
+    <div class="seg-field">
+      <div class="field-top">
+        <span class="field-label">${label}</span>
+        <button class="copy-btn" data-text="${raw}">Copy</button>
+      </div>
+      <p class="field-text${mono ? ' mono' : ''}">${safe}</p>
+    </div>`;
+}
+
+function applyCardStatus(card, i) {
+  const p = state.projects.find(x => x.id === state.currentProjectId);
+  const status = (p.progress || {})[i] || 'default';
+  const isOpen = card.classList.contains('open');
+  card.className = `segment-card${status !== 'default' ? ' status-' + status : ''}${isOpen ? ' open' : ''}`;
+  updateStats(p);
+}
+
+function setStatus(i, status) {
+  const p = state.projects.find(x => x.id === state.currentProjectId);
+  if (!p.progress) p.progress = {};
+  p.progress[i] = status;
+  save();
+}
+
+function updateStats(p) {
+  const s = calcStats(p);
+  const pct = s.total > 0 ? Math.round((s.finished / s.total) * 100) : 0;
+  document.getElementById('stat-total').textContent     = s.total;
+  document.getElementById('stat-started').textContent   = s.started;
+  document.getElementById('stat-finished').textContent  = s.finished;
+  document.getElementById('stat-remaining').textContent = s.remaining;
+  document.getElementById('stat-pct').textContent       = pct + '%';
+  document.getElementById('progress-fill').style.width  = pct + '%';
+}
+
+// Expand / Collapse All
+document.getElementById('expand-all-btn').addEventListener('click', () => {
+  document.querySelectorAll('.segment-card').forEach(c => c.classList.add('open'));
+});
+document.getElementById('collapse-all-btn').addEventListener('click', () => {
+  document.querySelectorAll('.segment-card').forEach(c => c.classList.remove('open'));
+});
+
+document.getElementById('back-btn').addEventListener('click', showDashboard);
+
+// ─────────────────────────────────────── MODALS ───────────────
+function openModal(id)  { document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+// Close via overlay or × button
+document.addEventListener('click', e => {
+  const target = e.target.closest('[data-close]');
+  if (target) closeModal(target.dataset.close);
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') ['modal-new','modal-rename','modal-delete','modal-reupload','modal-fix-json'].forEach(closeModal);
+});
+
+// ─── Fix JSON ───────────────────────────────────────────────
+function openFixJson(errMsg) {
+  const errEl = document.getElementById('fix-json-err-msg');
+  if (errMsg) { errEl.textContent = errMsg; errEl.classList.remove('hidden'); }
+  else errEl.classList.add('hidden');
+  document.getElementById('fix-json-pre').textContent = FIX_JSON_PROMPT;
+  openModal('modal-fix-json');
+}
+document.getElementById('dash-fix-json-btn').addEventListener('click', () => openFixJson(null));
+document.getElementById('tracker-fix-json-btn').addEventListener('click', () => openFixJson(null));
+
+document.getElementById('copy-prompt-btn').addEventListener('click', () => {
+  navigator.clipboard.writeText(FIX_JSON_PROMPT).then(() => {
+    const btn = document.getElementById('copy-prompt-btn');
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy Prompt'; btn.classList.remove('copied'); }, 2200);
+  });
+});
+
+// ─── New Project ────────────────────────────────────────────
+document.getElementById('new-project-btn').addEventListener('click', () => {
+  document.getElementById('new-name-input').value = '';
+  setUploadStatus('new-file-status', '', '');
+  state.newFileData = null;
+  document.getElementById('new-file-input').value = '';
+  openModal('modal-new');
+  setTimeout(() => document.getElementById('new-name-input').focus(), 100);
+});
+
+handleFileInput('new-file-input', (data, err, fname) => {
+  if (err || !isValidSFJson(data)) {
+    state.newFileData = null;
+    setUploadStatus('new-file-status', `✗ Invalid format — ${fname}`, 'err');
+    if (!err) { closeModal('modal-new'); openFixJson('That file doesn\'t match the Script Flow format. Use the prompt below to generate a valid one with any AI.'); }
+  } else {
+    state.newFileData = data;
+    setUploadStatus('new-file-status', `✓ ${fname} · ${data.length} segments`, 'ok');
+  }
+});
+
+document.getElementById('create-btn').addEventListener('click', () => {
+  const name = document.getElementById('new-name-input').value.trim();
+  if (!name) { document.getElementById('new-name-input').focus(); return; }
+  if (!state.newFileData) {
+    closeModal('modal-new');
+    openFixJson('No valid JSON file uploaded. Use the prompt below to generate one with any AI, then upload it.');
+    return;
+  }
+  const project = { id: uid(), name, segments: state.newFileData, progress: {}, createdAt: new Date().toISOString() };
+  state.projects.unshift(project);
+  save();
+  state.newFileData = null;
+  closeModal('modal-new');
+  showTracker(project.id);
+});
+
+// ─── Rename ─────────────────────────────────────────────────
+function openRenameModal(id) {
+  state.pendingRenameId = id;
+  const p = state.projects.find(x => x.id === id);
+  document.getElementById('rename-input').value = p.name;
+  openModal('modal-rename');
+  setTimeout(() => document.getElementById('rename-input').focus(), 100);
+}
+document.getElementById('confirm-rename-btn').addEventListener('click', () => {
+  const name = document.getElementById('rename-input').value.trim();
+  if (!name) return;
+  const p = state.projects.find(x => x.id === state.pendingRenameId);
+  if (p) { p.name = name; save(); }
+  if (state.currentProjectId === state.pendingRenameId) {
+    document.getElementById('tracker-title').textContent = name;
+  }
+  closeModal('modal-rename');
+  renderDashboard();
+});
+
+// ─── Delete ─────────────────────────────────────────────────
+function openDeleteModal(id) {
+  state.pendingDeleteId = id;
+  const p = state.projects.find(x => x.id === id);
+  document.getElementById('delete-name-display').textContent = p.name;
+  openModal('modal-delete');
+}
+document.getElementById('confirm-delete-btn').addEventListener('click', () => {
+  const wasActive = state.currentProjectId === state.pendingDeleteId;
+  state.projects = state.projects.filter(x => x.id !== state.pendingDeleteId);
+  save();
+  closeModal('modal-delete');
+  if (wasActive) showDashboard();
+  else renderDashboard();
+});
+
+// ─── Re-upload ──────────────────────────────────────────────
+function openReuploadModal(id) {
+  state.pendingReuploadId = id;
+  state.reuploadFileData = null;
+  document.getElementById('reupload-file-input').value = '';
+  setUploadStatus('reupload-file-status', '', '');
+  openModal('modal-reupload');
+}
+handleFileInput('reupload-file-input', (data, err, fname) => {
+  if (err || !isValidSFJson(data)) {
+    state.reuploadFileData = null;
+    setUploadStatus('reupload-file-status', `✗ Invalid format — ${fname}`, 'err');
+    if (!err) { closeModal('modal-reupload'); openFixJson('That file doesn\'t match the Script Flow format. Use the prompt below to generate a valid one.'); }
+  } else {
+    state.reuploadFileData = data;
+    setUploadStatus('reupload-file-status', `✓ ${fname} · ${data.length} segments`, 'ok');
+  }
+});
+document.getElementById('confirm-reupload-btn').addEventListener('click', () => {
+  if (!state.reuploadFileData) {
+    closeModal('modal-reupload');
+    openFixJson('No valid JSON selected. Use the prompt below to generate one.');
+    return;
+  }
+  const p = state.projects.find(x => x.id === state.pendingReuploadId);
+  if (p) { p.segments = state.reuploadFileData; p.progress = {}; save(); }
+  closeModal('modal-reupload');
+  if (state.currentProjectId === state.pendingReuploadId) renderTracker();
+  else renderDashboard();
+});
+
+// ─────────────────────────────────────── FILE HELPERS ─────────
+function handleFileInput(inputId, cb) {
+  document.getElementById(inputId).addEventListener('change', function () {
+    const file = this.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      try { cb(JSON.parse(e.target.result), null, file.name); }
+      catch { cb(null, 'parse error', file.name); }
+    };
+    reader.readAsText(file);
+  });
+}
+
+function setUploadStatus(elId, text, type) {
+  const el = document.getElementById(elId);
+  el.textContent = text;
+  el.className = 'upload-status' + (type ? ' ' + type : '') + (text ? '' : ' hidden');
+}
+
+function setupDragDrop(areaId, inputId) {
+  const area = document.getElementById(areaId);
+  area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('dragover'); });
+  area.addEventListener('dragleave', () => area.classList.remove('dragover'));
+  area.addEventListener('drop', e => {
+    e.preventDefault();
+    area.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    const input = document.getElementById(inputId);
+    input.files = dt.files;
+    input.dispatchEvent(new Event('change'));
+  });
+}
+setupDragDrop('new-upload-area', 'new-file-input');
+setupDragDrop('reupload-area', 'reupload-file-input');
+
+// ─────────────────────────────────────── UTILS ────────────────
+function esc(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// Enter key on modals
+document.getElementById('new-name-input').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('create-btn').click(); });
+document.getElementById('rename-input').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('confirm-rename-btn').click(); });
+
+// ─────────────────────────────────────── INIT ─────────────────
+load();
+showDashboard();
+</script>
+</body>
+</html>
